@@ -206,7 +206,6 @@
 				url = string.Format(url,valueToJoin.ToString());
 				var request = new HttpRequestMessage(HttpMethod.Put,url);
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				var client = ClientFactory.CreateClient();
 

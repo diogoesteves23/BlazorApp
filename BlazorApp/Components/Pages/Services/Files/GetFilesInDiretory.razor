@@ -192,7 +192,6 @@
 				var request = new HttpRequestMessage(HttpMethod.Get,
 				string.Format(url, prefixPath, folderNameOrigin, string.Join('&', subFoldersOrigin)));
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				var client = ClientFactory.CreateClient();
 

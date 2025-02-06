@@ -1,0 +1,225 @@
+﻿@page "/BadAccount/{EnvironmentVal}"
+@using BlazorApp.Helpers
+@using BlazorApp.Model.Services
+@rendermode InteractiveServer
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Linq.Expressions
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager _navigationManager
+
+<PageTitle>BadAccount</PageTitle>
+
+<style>
+	.button {
+	border: none;
+	color: white;
+	padding: 9px 23px;
+	text-align: center;
+	text-decoration: none;
+	display: inline-block;
+	font-size: 12px;
+	margin: 4px 2px;
+	cursor: pointer;
+	}
+
+	.button1 {
+	background-color: gray;
+	}
+
+	.button2 {
+	background-color: cornflowerblue;
+	}
+
+	table {
+	font-family: arial, sans-serif;
+	border-collapse: collapse;
+	width: 100%;
+	}
+
+	.error{
+	color: red;
+	}
+
+	td, th {
+	border: 1px solid #dddddd;
+	text-align: left;
+	padding: 8px;
+	}
+
+	tr:nth-child(even) {
+	background-color: #dddddd;
+	}
+</style>
+
+<h3>Mark Account on Bad Account Status</h3>
+<br />
+<hr>
+<br />
+<form method="post" @onsubmit="Submit" @formname="starship-plain-form">
+	<AntiforgeryToken />
+	<div>
+		<label>
+			AccountId:
+			<InputNumber @bind-Value="accountId"/>
+		</label>
+	</div>
+	<hr>
+	<div>
+		<label>
+			SaxoAccountNumber:
+			<InputText @bind-Value="saxoAccountNumber"/>
+		</label>
+	</div>
+	<hr>
+	<div>
+		<label>
+			DoAccountNumber:
+			<InputText @bind-Value="doAccountNumber"/>
+		</label>
+	</div>
+	<hr>
+	<div>
+		<label>
+			AccountEventClose:
+			<InputCheckbox @bind-Value="accountEventClose"/>
+		</label>
+	</div>
+	@if(messageStore.Length > 0)
+	{
+		<div>
+			<p class="error">@messageStore</p>
+		</div>
+	}
+	<hr>
+	<div>
+		<button class="button button2" type="submit">Submit</button>
+	</div>
+</form>
+<br />
+<hr>
+<br />
+<div>
+	@if (result.HasValue)
+	{
+		if(result.Value)
+		{
+			<div>
+				<img src="check.png" title="Success">
+			</div>
+		}
+		else
+		{
+			<div>
+				<img src="user.png" title="Error">
+			</div>
+		}
+		<br />
+		<hr>
+		<br />
+	}
+</div>
+
+<button class="button button1" @onclick=GoBack>Back</button>
+
+
+@code {
+	[Parameter]
+	public string EnvironmentVal { get; set; } = string.Empty;
+
+	private int? accountId { get; set; }
+
+	private string? doAccountNumber { get; set; } = string.Empty;
+
+	private string? saxoAccountNumber { get; set; } = string.Empty;
+
+	private bool accountEventClose { get; set; }
+
+	private bool Validations => accountId.HasValue && !string.IsNullOrEmpty(doAccountNumber) && !string.IsNullOrEmpty(saxoAccountNumber) || 
+								accountId.HasValue && !string.IsNullOrEmpty(doAccountNumber) && string.IsNullOrEmpty(saxoAccountNumber) ||
+								accountId.HasValue && string.IsNullOrEmpty(doAccountNumber) && !string.IsNullOrEmpty(saxoAccountNumber) ||
+								!accountId.HasValue && !string.IsNullOrEmpty(doAccountNumber) && !string.IsNullOrEmpty(saxoAccountNumber) ||
+								!accountId.HasValue && string.IsNullOrEmpty(doAccountNumber) && string.IsNullOrEmpty(saxoAccountNumber);
+
+	private string messageStore = string.Empty;
+
+	private bool? result { get; set; }
+
+	protected void GoBack()
+	{
+		switch (EnvironmentVal)
+		{
+			case "D":
+				_navigationManager.NavigateTo($"/Dev");
+				break;
+			case "Q":
+				_navigationManager.NavigateTo($"/Qua");
+				break;
+			case "P":
+				_navigationManager.NavigateTo($"/Prd");
+				break;
+		}
+	}
+
+	private void HandleValidationRequested()
+	{
+		// Custom validation logic
+		if (Validations)
+		{
+			messageStore = "Only one input between AccountId, SaxoAccountNumber and DoAccountNumber must be non empty.";
+		}
+		else{
+			messageStore = string.Empty;
+		}
+	}
+
+	private async Task Submit()
+	{
+		HandleValidationRequested();
+
+		if(messageStore.Length != 0)
+		{
+			return;
+		}
+
+		if (ServicesRefData.Services.TryGetValue(EnvironmentVal, out var services))
+		{
+			if (services.TryGetValue(1, out string? url) && !string.IsNullOrEmpty(url))
+			{
+				StringBuilder valueToJoin = new StringBuilder();
+				valueToJoin.AppendFormat("{0}={1}", nameof(accountEventClose), accountEventClose);
+				if(accountId.HasValue)
+				{
+					valueToJoin.AppendFormat("&{0}={1}", nameof(accountId), accountId);
+				}
+				else if (!string.IsNullOrEmpty(doAccountNumber))
+				{
+					valueToJoin.AppendFormat("&{0}={1}", nameof(doAccountNumber), doAccountNumber);
+				}
+				else if (!string.IsNullOrEmpty(saxoAccountNumber))
+				{
+					valueToJoin.AppendFormat("&{0}={1}", nameof(saxoAccountNumber), saxoAccountNumber);
+				}
+
+				url = string.Format(url,valueToJoin.ToString());
+				var request = new HttpRequestMessage(HttpMethod.Put,url);
+				request.Headers.Add("Accept", "text/plain");
+				request.Headers.Add("x-nb-oc-channel", "1.2");
+
+				var client = ClientFactory.CreateClient();
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					using var responseStream = await response.Content.ReadAsStreamAsync();
+
+					result = await JsonSerializer.DeserializeAsync
+								<bool>(responseStream);
+				}
+			}
+		}
+	}
+}

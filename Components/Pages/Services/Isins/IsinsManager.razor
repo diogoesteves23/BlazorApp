@@ -1,0 +1,330 @@
+﻿@page "/IsinsManager/{EnvironmentVal}"
+@using BlazorApp.Helpers
+@using BlazorApp.Model.Services
+@rendermode InteractiveServer
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Text
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager _navigationManager
+
+<PageTitle>IsinsManager</PageTitle>
+
+<style>
+	.button {
+	border: none;
+	color: white;
+	padding: 9px 23px;
+	text-align: center;
+	text-decoration: none;
+	display: inline-block;
+	font-size: 12px;
+	margin: 4px 2px;
+	cursor: pointer;
+	}
+
+	.button1 {
+	background-color: gray;
+	}
+
+	.button2 {
+	background-color: cornflowerblue;
+	}
+
+	table {
+	font-family: arial, sans-serif;
+	border-collapse: collapse;
+	width: 100%;
+	}
+
+	td, th {
+	border: 1px solid #dddddd;
+	text-align: left;
+	padding: 8px;
+	}
+
+	tr:nth-child(even) {
+	background-color: #dddddd;
+	}
+
+	.error {
+	color: red;
+	}
+</style>
+
+<h3>Manage Isins</h3>
+<hr>
+<form method="post" @onsubmit="Submit" @formname="starship-plain-form">
+	<AntiforgeryToken />
+	<div>
+		<label>
+			From Date:
+			<InputDate @bind-Value="fromDate" @bind-Value:format="dd-MM-yyyy" />
+		</label>
+		<label>
+			To Date:
+			<InputDate @bind-Value="toDate" @bind-Value:format="dd-MM-yyyy" />
+		</label>
+		<button class="button button2" type="submit">Submit</button>
+	</div>
+</form>
+<hr>
+@if (messageStore.Length > 0)
+{
+	<div>
+		<p class="error">@messageStore</p>
+	</div>
+	<hr>
+}
+<div>
+	@if (getIsinNotFound.AccountNumber.Length > 0)
+	{
+		<table>
+			<tr>
+				<th>@nameof(getIsinNotFound.ReportingDate)</th>
+				<th>@nameof(getIsinNotFound.AccountNumber)</th>
+				<th>@nameof(getIsinNotFound.PartnerAccountKey)</th>
+				<th>@nameof(getIsinNotFound.InstrumentCode)</th>
+				<th>@nameof(getIsinNotFound.IsinCode)</th>
+				<th>@nameof(getIsinNotFound.InstrumentDescription)</th>
+				<th>@nameof(getIsinNotFound.InstrumentCurrency)</th>
+				<th>@nameof(getIsinNotFound.ExchangeDescription)</th>
+				<th>@nameof(getIsinNotFound.ExchangeIsoCode)</th>
+				<th>@nameof(getIsinNotFound.IsoMic)</th>
+			</tr>
+			<tr>
+				<td>@getIsinNotFound.ReportingDate</td>
+				<td>@getIsinNotFound.AccountNumber</td>
+				<td>@getIsinNotFound.PartnerAccountKey</td>
+				<td>@getIsinNotFound.InstrumentCode</td>
+				<td>@getIsinNotFound.IsinCode</td>
+				<td>@getIsinNotFound.InstrumentDescription</td>
+				<td>@getIsinNotFound.InstrumentCurrency</td>
+				<td>@getIsinNotFound.ExchangeDescription</td>
+				<td>@getIsinNotFound.ExchangeIsoCode</td>
+				<td>@getIsinNotFound.IsoMic</td>
+			</tr>
+		</table>
+		<br />
+		<hr>
+		<br />
+		<div>
+			@if (ShowInsertDummyIsin)
+			{
+				<button class="button button2" @onclick=ShowOptions>SetJobChanges</button>
+			}
+			else
+			{
+				<form method="post" @onsubmit="SubmitInsertDummyIsin" @formname="starship-plain-form">
+					<AntiforgeryToken />
+					<div>
+						<label>
+							DummyIsin:
+							<InputText @bind-Value="insertDummyIsinIn.DummyIsin" />
+						</label>
+						<label>
+							OriginIsin:
+							<InputText @bind-Value="insertDummyIsinIn.OriginIsin" />
+						</label>
+						<button class="button button2" type="submit">Submit</button>
+					</div>
+				</form>
+				<div>
+					@if (SuccessInsertDummyIsin.HasValue)
+					{
+						if (SuccessInsertDummyIsin.Value)
+						{
+							<div>
+								<img src="check.png" title="Success">
+							</div>
+						}
+						else
+						{
+							<div>
+								<img src="user.png" title="Error">
+							</div>
+							<hr>
+							@if (InsertDummyIsinMessage.Length > 0)
+							{
+								<div>
+									<p class="error">@InsertDummyIsinMessage</p>
+								</div>
+							}
+						}
+						<br />
+						<hr>
+						<br />
+					}
+				</div>
+			}
+		</div>
+	}
+</div>
+
+<button class="button button1" @onclick=GoBack>Back</button>
+
+
+@code {
+	[Parameter]
+	public string EnvironmentVal { get; set; } = string.Empty;
+
+	public bool ShowInsertDummyIsin = false;
+
+	public string messageStore { get; set; } = string.Empty;
+
+	private DateTime fromDate { get; set; }
+
+	private DateTime toDate { get; set; }
+
+	private IsinOut getIsinNotFound { get; set; } = new();
+
+	private InsertDummyIsinIn insertDummyIsinIn { get; set; } = new();
+
+	public bool? SuccessInsertDummyIsin { get; set; }
+
+	public string InsertDummyIsinMessage { get; set; } = string.Empty;
+
+	protected void GoBack()
+	{
+		switch (EnvironmentVal)
+		{
+			case "D":
+				_navigationManager.NavigateTo($"/Dev");
+				break;
+			case "Q":
+				_navigationManager.NavigateTo($"/Qua");
+				break;
+			case "P":
+				_navigationManager.NavigateTo($"/Prd");
+				break;
+		}
+	}
+
+	protected void ShowOptions()
+	{
+		ShowInsertDummyIsin = true;
+	}
+
+	protected override void OnInitialized()
+	{
+		base.OnInitialized();
+		fromDate = DateTime.Now.AddMonths(-1);
+		toDate = DateTime.Now;
+	}
+
+	private async Task Submit()
+	{
+		messageStore = string.Empty;
+		if (ServicesRefData.Services.TryGetValue(EnvironmentVal, out var services))
+		{
+			if (services.TryGetValue(12, out string? url) && !string.IsNullOrEmpty(url))
+			{
+				StringBuilder str = new StringBuilder();
+				str.AppendFormat("{0}={1}", nameof(fromDate), fromDate);
+				str.AppendFormat("&{0}={1}", nameof(toDate), toDate);
+
+				var request = new HttpRequestMessage(HttpMethod.Get, string.Format(url, str));
+				request.Headers.Add("Accept", "text/plain");
+				request.Headers.Add("x-nb-oc-channel", "1.2");
+
+				var client = ClientFactory.CreateClient();
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					using var responseStream = await response.Content.ReadAsStreamAsync();
+					getIsinNotFound = await JsonSerializer.DeserializeAsync<IsinOut>(responseStream) ?? new();
+
+					if(getIsinNotFound.AccountNumber.Length == 0)
+					{
+						messageStore = "No information to show!";
+					}
+				}
+			}
+		}
+	}
+
+	private async Task SubmitInsertDummyIsin()
+	{
+		if (ServicesRefData.Services.TryGetValue(EnvironmentVal, out var services))
+		{
+			if (services.TryGetValue(13, out string? url) && !string.IsNullOrEmpty(url))
+			{
+				var request = new HttpRequestMessage(HttpMethod.Post, url);
+				request.Headers.Add("Accept", "text/plain");
+				request.Headers.Add("x-nb-oc-channel", "1.2");
+
+				request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(insertDummyIsinIn), Encoding.UTF8, "application/json");
+
+				var client = ClientFactory.CreateClient();
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					using var responseStream = await response.Content.ReadAsStreamAsync();
+					InsertDummyIsinOut output = await JsonSerializer.DeserializeAsync<InsertDummyIsinOut>(responseStream) ?? new();
+
+					if(output != null)
+					{
+						SuccessInsertDummyIsin = output.Success;
+						InsertDummyIsinMessage = output.Message;
+					}
+				}
+			}
+		}
+	}
+
+	public class InsertDummyIsinIn
+	{
+		[JsonPropertyName("dummyIsin")]
+		public string DummyIsin { get; set; } = string.Empty;
+
+		[JsonPropertyName("originIsin")]
+		public string OriginIsin { get; set; } = string.Empty;
+	}
+
+	public class InsertDummyIsinOut
+	{
+		[JsonPropertyName("dummyIsin")]
+		public bool Success { get; set; }
+
+		[JsonPropertyName("message")]
+		public string Message { get; set; } = string.Empty;
+	}
+
+	public class IsinOut
+	{
+		[JsonPropertyName("reportingDate")]
+		public string ReportingDate { get; set; } = string.Empty;
+
+		[JsonPropertyName("lengthInBytes")]
+		public string AccountNumber { get; set; } = string.Empty;
+
+		[JsonPropertyName("partnerAccountKey")]
+		public string PartnerAccountKey { get; set; } = string.Empty;
+
+		[JsonPropertyName("instrumentCode")]
+		public string InstrumentCode { get; set; } = string.Empty;
+
+		[JsonPropertyName("isinCode")]
+		public string IsinCode { get; set; } = string.Empty;
+
+		[JsonPropertyName("instrumentDescription")]
+		public string InstrumentDescription { get; set; } = string.Empty;
+
+		[JsonPropertyName("instrumentCurrency")]
+		public string InstrumentCurrency { get; set; } = string.Empty;
+
+		[JsonPropertyName("exchangeDescription")]
+		public string ExchangeDescription { get; set; } = string.Empty;
+
+		[JsonPropertyName("exchangeIsoCode")]
+		public string ExchangeIsoCode { get; set; } = string.Empty;
+
+		[JsonPropertyName("isoMic")]
+		public string IsoMic { get; set; } = string.Empty;
+	}
+
+	}

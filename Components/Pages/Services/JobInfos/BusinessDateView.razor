@@ -1,0 +1,301 @@
+﻿@page "/BusinessDateView/{EnvironmentVal}"
+@using BlazorApp.Helpers
+@using BlazorApp.Model.DumpJE
+@using BlazorApp.Model.Services
+@rendermode InteractiveServer
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Text
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager _navigationManager
+
+<PageTitle>BusinessDateView</PageTitle>
+
+<style>
+	.button {
+	border: none;
+	color: white;
+	padding: 9px 23px;
+	text-align: center;
+	text-decoration: none;
+	display: inline-block;
+	font-size: 12px;
+	margin: 4px 2px;
+	cursor: pointer;
+	}
+
+	.button1 {
+	background-color: gray;
+	}
+
+	.button2 {
+	background-color: cornflowerblue;
+	}
+
+	table {
+	font-family: arial, sans-serif;
+	border-collapse: collapse;
+	width: 100%;
+	}
+
+	td, th {
+	border: 1px solid #dddddd;
+	text-align: left;
+	padding: 8px;
+	}
+
+	tr:nth-child(even) {
+	background-color: #dddddd;
+	}
+</style>
+
+<h3>View Job Data Based on BusinessDate</h3>
+<hr>
+<form method="post" @onsubmit="SubmitDumpExecution" @formname="starship-plain-form">
+	<AntiforgeryToken />
+	<div>
+		<label>
+			BusinessDate:
+			<InputDate @bind-Value="businessDate"/>
+		</label>
+		<button class="button button2" type="submit">Submit</button>
+	</div>
+	<hr>
+</form>
+<div>
+	@if (jobExecutionList.Count > 0)
+	{
+		<table>
+			<tr>
+				<th>@nameof(JobExecutionInfo.Id)</th>
+				<th>@nameof(JobExecutionInfo.JobId)</th>
+				<th>@nameof(JobExecutionInfo.SchedulledDate)</th>
+				<th>@nameof(JobExecutionInfo.StartDate)</th>
+				<th>@nameof(JobExecutionInfo.EndDate)</th>
+				<th>@nameof(JobExecutionInfo.BusinessDate)</th>
+				<th>@nameof(JobExecutionInfo.Status)</th>
+				<th>@nameof(JobExecutionInfo.LastExecution)</th>
+				<th>@nameof(JobExecutionInfo.JobSequence)</th>
+			</tr>
+
+			@foreach (var item in jobExecutionListPaginated)
+			{
+				<tr>
+					<td>@item.Id</td>
+					<td>@item.JobId</td>
+					<td>@item.SchedulledDate</td>
+					<td>@item.StartDate</td>
+					<td>@item.EndDate</td>
+					<td>@item.BusinessDate</td>
+					<td>@item.Status</td>
+					<td>@item.LastExecution</td>
+					<td>@item.JobSequence</td>
+				</tr>
+			}
+		</table>
+		<hr>
+		<div class="pagination">
+			<button @onclick="PreviousPage" disabled="@(!CanGoBack)">Previous</button>
+			<span>Page @currentPage of @totalPages</span>
+			<button @onclick="NextPage" disabled="@(!CanGoNext)">Next</button>
+		</div>
+		<br />
+		<hr>
+		<br />
+		@if (!ShowBusinessDateReset)
+		{
+			<button class="button button2" @onclick="ShowOptions">Reset LastExecution By BusinessDate</button>
+		}
+		else
+		{
+			<form method="post" @onsubmit="SubmitResetBusinessDate" @formname="starship-plain-form">
+				<AntiforgeryToken />
+				<div>
+					<label>
+						BusinessDate:
+						<InputText @bind-Value="resetBusinessDateIn.BusinessDate" />
+					</label>
+					<label>
+						LastExecution:
+						<InputText @bind-Value="resetBusinessDateIn.LastExecution" />
+					</label>
+					<label>
+						Sequence:
+						<InputNumber @bind-Value="resetBusinessDateIn.Sequence" />
+					</label>
+					<br />
+					<button class="button button2" @onclick="CloseOptions">Close</button>
+					<button class="button button2" type="submit">Submit</button>
+				</div>
+			</form>
+		}
+	}
+</div>
+<br />
+<hr>
+<br />
+<button class="button button1" @onclick=GoBack>Back</button>
+
+
+@code {
+	[Parameter]
+	public string EnvironmentVal { get; set; } = string.Empty;
+
+	public DateTime businessDate { get; set; }
+
+	public bool ShowBusinessDateReset { get; set; }
+
+	public ResetBusinessDateIn resetBusinessDateIn { get; set; } = new();
+
+	private List<JobExecutionInfo> jobExecutionList { get; set; } = new();
+
+	#region PaginationProperties
+	private List<JobExecutionInfo> jobExecutionListPaginated { get; set; } = new();
+
+	private int currentPage = 1;
+	private int pageSize = 10;
+	private int totalPages = 0;
+
+	private bool CanGoBack => currentPage > 1;
+	private bool CanGoNext => currentPage < totalPages;
+	#endregion PaginationProperties
+
+	protected void GoBack()
+	{
+		switch (EnvironmentVal)
+		{
+			case "D":
+				_navigationManager.NavigateTo($"/Dev");
+				break;
+			case "Q":
+				_navigationManager.NavigateTo($"/Qua");
+				break;
+			case "P":
+				_navigationManager.NavigateTo($"/Prd");
+				break;
+		}
+	}
+
+	protected override void OnInitialized()
+	{
+		businessDate = DateTime.Now;
+	}
+
+	protected void ShowOptions()
+	{
+		ShowBusinessDateReset = true;
+	}
+
+	protected void CloseOptions()
+	{
+		ShowBusinessDateReset = false;
+	}
+
+	private async Task SubmitDumpExecution()
+	{
+		if (ServicesRefData.Services.TryGetValue(EnvironmentVal, out var services))
+		{
+			if (services.TryGetValue(6, out string? url) && !string.IsNullOrEmpty(url))
+			{
+				StringBuilder str = new StringBuilder();
+
+				str.AppendFormat("{0}={1}", nameof(businessDate), businessDate);
+
+				var request = new HttpRequestMessage(HttpMethod.Get, string.Format(url, str));
+				request.Headers.Add("Accept", "text/plain");
+				request.Headers.Add("x-nb-oc-channel", "1.2");
+
+				var client = ClientFactory.CreateClient();
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					using var responseStream = await response.Content.ReadAsStreamAsync();
+					DumpExecutionOut dumpExecution = await JsonSerializer.DeserializeAsync<DumpExecutionOut>(responseStream) ?? new();
+
+					if (dumpExecution != null)
+					{
+						jobExecutionList = dumpExecution.JobExecutionList;
+
+						totalPages = (int)Math.Ceiling(jobExecutionList.Count / (double)pageSize);
+						UpdatePaginatedData();
+					}
+				}
+			}
+		}
+	}
+
+	private async Task SubmitResetBusinessDate()
+	{
+		if (ServicesRefData.Services.TryGetValue(EnvironmentVal, out var services))
+		{
+			if (services.TryGetValue(7, out string? url) && !string.IsNullOrEmpty(url))
+			{
+				var request = new HttpRequestMessage(HttpMethod.Post, url);
+				request.Headers.Add("Accept", "text/plain");
+				request.Headers.Add("x-nb-oc-channel", "1.2");
+				request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(resetBusinessDateIn), Encoding.UTF8, "application/json");
+
+				var client = ClientFactory.CreateClient();
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					using var responseStream = await response.Content.ReadAsStreamAsync();
+
+					if (responseStream != null)
+					{
+						if (await JsonSerializer.DeserializeAsync<bool>(responseStream) && DateTime.TryParse(resetBusinessDateIn.BusinessDate, out DateTime businessDateParsed))
+						{
+							businessDate = businessDateParsed;
+							currentPage = 1;
+							pageSize = 10;
+							totalPages = 0;
+							await SubmitDumpExecution();
+						}
+					}
+				}
+			}
+		}
+	}
+
+	#region PaginationMethods
+	private void UpdatePaginatedData()
+	{
+		jobExecutionListPaginated = jobExecutionList.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
+	}
+
+	private void PreviousPage()
+	{
+		if (CanGoBack)
+		{
+			currentPage--;
+			UpdatePaginatedData();
+		}
+	}
+
+	// Go to the next page
+	private void NextPage()
+	{
+		if (CanGoNext)
+		{
+			currentPage++;
+			UpdatePaginatedData();
+		}
+	}
+	#endregion PaginationMethods
+
+	public class ResetBusinessDateIn()
+	{
+		[JsonPropertyName("businessDate")]
+		public string BusinessDate { get; set; } = string.Empty;
+
+		[JsonPropertyName("lastExecution")]
+		public string LastExecution { get; set; } = string.Empty;
+
+		[JsonPropertyName("sequence")]
+		public long Sequence { get; set; }
+	}
+}

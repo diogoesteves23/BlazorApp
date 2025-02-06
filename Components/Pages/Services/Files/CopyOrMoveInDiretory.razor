@@ -1,0 +1,241 @@
+﻿@page "/CopyOrMoveInDiretory/{EnvironmentVal}"
+@using BlazorApp.Helpers
+@using BlazorApp.Model.Files
+@using BlazorApp.Model.Services
+@rendermode InteractiveServer
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Text
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager _navigationManager
+
+<PageTitle>MoveFilesInDiretory</PageTitle>
+
+<style>
+	.button {
+		border: none;
+		color: white;
+		padding: 9px 23px;
+		text-align: center;
+		text-decoration: none;
+		display: inline-block;
+		font-size: 12px;
+		margin: 4px 2px;
+		cursor: pointer;
+	}
+
+	.button1 {
+		background-color: gray;
+	}
+
+	.button2 {
+		background-color: cornflowerblue;
+	}
+
+	table {
+		font-family: arial, sans-serif;
+		border-collapse: collapse;
+		width: 100%;
+	}
+
+	.error {
+		color: red;
+	}
+
+	td, th {
+		border: 1px solid #dddddd;
+		text-align: left;
+		padding: 8px;
+	}
+
+	tr:nth-child(even) {
+		background-color: #dddddd;
+	}
+</style>
+
+<h3>Copy Or Move Files In Diretory</h3>
+<br />
+<hr>
+<br />
+<form method="post" @onsubmit="Submit" @formname="starship-plain-form">
+	<AntiforgeryToken />
+	<div>
+		<label>Copy Or Move:</label>
+		<br />
+		<InputRadioGroup @bind-Value="moveOrCopy">
+			@foreach (var item in radioButtonValues)
+			{
+				<InputRadio Value="@item.Id" />
+				@item.Value
+				<br />
+			}
+		</InputRadioGroup>
+	</div>
+	<hr>
+	<div>
+		<label>
+			File Path Origin:
+			<InputText @bind-Value="filePathOrigin" />
+		</label>
+	</div>
+	<hr>
+	<div>
+		<label>
+			File Path Destination:
+			<InputText @bind-Value="filePathDestination" />
+		</label>
+	</div>
+	<hr>
+	<div>
+		<label>
+			Create Destination Directory If NotExists:
+			<InputCheckbox @bind-Value="createDestinationDirectoryIfNotExists" />
+		</label>
+	</div>
+	@if (messageStore.Length > 0)
+	{
+		<div>
+			<p class="error">@messageStore</p>
+		</div>
+	}
+	<hr>
+	<div>
+		<button class="button button2" type="submit">Submit</button>
+	</div>
+</form>
+<br />
+<hr>
+<br />
+<div>
+	@if (result.HasValue)
+	{
+		if (result.Value)
+		{
+			<div>
+				<img src="check.png" title="Success">
+			</div>
+		}
+		else
+		{
+			<div>
+				<img src="user.png" title="Error">
+			</div>
+		}
+		<br />
+		<hr>
+		<br />
+	}
+</div>
+
+<button class="button button1" @onclick=GoBack>Back</button>
+
+
+@code {
+	[Parameter]
+	public string EnvironmentVal { get; set; } = string.Empty;
+
+	public class RadioButton()
+	{
+		public int Id { get; set; }
+
+		public string Value { get; set; } = string.Empty;
+	}
+
+	public List<RadioButton> radioButtonValues = new List<RadioButton>();
+
+	private int? moveOrCopy { get; set; } = 3;
+
+	private string? filePathOrigin { get; set; } = string.Empty;
+
+	private string? filePathDestination { get; set; } = string.Empty;
+
+	private bool createDestinationDirectoryIfNotExists { get; set; }
+
+	private bool Validations => string.IsNullOrEmpty(filePathOrigin) && string.IsNullOrEmpty(filePathDestination) || !moveOrCopy.HasValue;
+
+	private string messageStore = string.Empty;
+
+	private bool? result { get; set; }
+
+	protected override void OnParametersSet()
+	{
+		radioButtonValues.Add(new RadioButton()
+			{
+				Id = 3,
+				Value = "Copy"
+			});
+
+		radioButtonValues.Add(new RadioButton()
+			{
+				Id = 4,
+				Value = "Move"
+			});
+	}
+
+	protected void GoBack()
+	{
+		switch (EnvironmentVal)
+		{
+			case "D":
+				_navigationManager.NavigateTo($"/Dev");
+				break;
+			case "Q":
+				_navigationManager.NavigateTo($"/Qua");
+				break;
+			case "P":
+				_navigationManager.NavigateTo($"/Prd");
+				break;
+		}
+	}
+
+	private void HandleValidationRequested()
+	{
+		// Custom validation logic
+		if (Validations)
+		{
+			messageStore = "FilePathOrigin and FilePathDestination and MoveOrCopy must be non empty.";
+		}
+		else
+		{
+			messageStore = string.Empty;
+		}
+	}
+
+	private async Task Submit()
+	{
+		HandleValidationRequested();
+
+		if (messageStore.Length != 0)
+		{
+			return;
+		}
+
+		if (ServicesRefData.Services.TryGetValue(EnvironmentVal, out var services))
+		{
+			if (services.TryGetValue(moveOrCopy ?? 3, out string? url) && !string.IsNullOrEmpty(url))
+			{
+				var input = new CopyOrMoveFile()
+					{
+						FilePathOrigin = filePathOrigin ?? string.Empty,
+						FilePathDestination = filePathDestination ?? string.Empty,
+						CreateDestinationDirectoryIfNotExists = createDestinationDirectoryIfNotExists
+					};
+				var request = new HttpRequestMessage(HttpMethod.Post, url);
+				request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(input), Encoding.UTF8, "application/json");
+				request.Headers.Add("Accept", "text/plain");
+				request.Headers.Add("x-nb-oc-channel", "1.2");
+
+				var client = ClientFactory.CreateClient();
+
+				var response = await client.SendAsync(request);
+
+				if (response.IsSuccessStatusCode)
+				{
+					using var responseStream = await response.Content.ReadAsStreamAsync();
+
+					result = await JsonSerializer.DeserializeAsync<bool>(responseStream);
+				}
+			}
+		}
+	}
+}

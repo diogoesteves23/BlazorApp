@@ -1,0 +1,87 @@
+﻿@page "/qua"
+@using BlazorApp.Model
+@using BlazorApp.Model.Services
+@inherits LayoutComponentBase
+@rendermode InteractiveServer
+@inject NavigationManager _navigationManager
+
+<PageTitle>Qua</PageTitle>
+
+<style>
+    .button {
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+    }
+
+    .button1 {
+        background-color: gray;
+    }
+</style>
+
+<h3>Lista de Serviços Disponiveis para Qua</h3>
+
+<section class="py-3 py-md-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-10 col-xl-8 col-xxl-7">
+                <div class="row gy-4">
+                    @foreach (var service in services)
+                    {
+                        <div class="col-12 col-sm-6">
+                            <div class="card widget-card border-light shadow-sm">
+                                <div class="card-body p-4">
+                                    <div class="row">
+                                        <div class="col-8">
+                                            <h5 class="card-title widget-card-title mb-3">@service.PageName</h5>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="d-flex justify-content-end">
+                                                <div class="d-flex align-items-center mt-3">
+                                                    <button class="lh-1 me-3 bg-success-subtle text-success rounded-circle p-1 d-flex align-items-center justify-content-center" @onclick="((args) => OnClickWithArgs(args, service.PageCode))">
+                                                        <i class="bi bi-arrow-right-short"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<button class="button button1" @onclick=GoBack>Back</button>
+
+
+
+@code {
+    private List<Service> services = new();
+
+    private const string Environment = "Q";
+
+    protected override void OnInitialized()
+    {
+        services = BlazorApp.Helpers.ServicesRefData.ServicesList;
+    }
+
+    protected void GoBack()
+    {
+        _navigationManager.NavigateTo($"/");
+    }
+
+    protected void OnClickWithArgs(EventArgs args, string pageCode)
+    {
+        _navigationManager.NavigateTo($"/{pageCode}/{Environment}");
+    }
+}

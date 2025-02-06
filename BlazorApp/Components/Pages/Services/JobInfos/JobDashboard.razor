@@ -464,7 +464,6 @@
 				url = string.Format(url, jobId);
 				var request = new HttpRequestMessage(HttpMethod.Get, url);
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				var client = ClientFactory.CreateClient();
 
@@ -509,7 +508,6 @@
 				url = string.Format(url, str);
 				var request = new HttpRequestMessage(HttpMethod.Get, url);
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				var client = ClientFactory.CreateClient();
 
@@ -652,7 +650,7 @@
 			{
 				var request = new HttpRequestMessage(HttpMethod.Post, url);
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
+
 				request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
 
 				var client = ClientFactory.CreateClient();
@@ -677,7 +675,6 @@
 			{
 				var request = new HttpRequestMessage(HttpMethod.Post, url);
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				var client = ClientFactory.CreateClient();
 

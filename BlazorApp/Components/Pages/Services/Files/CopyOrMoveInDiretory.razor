@@ -223,7 +223,6 @@
 				var request = new HttpRequestMessage(HttpMethod.Post, url);
 				request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(input), Encoding.UTF8, "application/json");
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				var client = ClientFactory.CreateClient();
 

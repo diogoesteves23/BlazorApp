@@ -225,7 +225,6 @@
 
 				var request = new HttpRequestMessage(HttpMethod.Get, string.Format(url, str));
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				var client = ClientFactory.CreateClient();
 
@@ -253,7 +252,6 @@
 			{
 				var request = new HttpRequestMessage(HttpMethod.Post, url);
 				request.Headers.Add("Accept", "text/plain");
-				request.Headers.Add("x-nb-oc-channel", "1.2");
 
 				request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(insertDummyIsinIn), Encoding.UTF8, "application/json");
 
